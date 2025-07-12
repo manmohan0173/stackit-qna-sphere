@@ -1,5 +1,5 @@
 
-import { Bell, Plus, Search, User } from "lucide-react";
+import { Bell, Plus, Search, User, LogOut } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,11 +9,18 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
+import { useAuth } from "@/contexts/AuthContext";
 
 const Navbar = () => {
   const location = useLocation();
+  const { user, signOut } = useAuth();
   const notificationCount = 3; // Mock notification count
+
+  const handleSignOut = async () => {
+    await signOut();
+  };
 
   return (
     <nav className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-50">
@@ -45,70 +52,86 @@ const Navbar = () => {
               <Search className="h-4 w-4" />
             </Button>
 
-            {/* Ask Question Button */}
-            <Button asChild className="hidden sm:flex">
-              <Link to="/ask">
-                <Plus className="h-4 w-4 mr-2" />
-                Ask Question
-              </Link>
-            </Button>
-
-            {/* Mobile Ask Button */}
-            <Button asChild size="icon" className="sm:hidden">
-              <Link to="/ask">
-                <Plus className="h-4 w-4" />
-              </Link>
-            </Button>
-
-            {/* Notifications */}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="relative">
-                  <Bell className="h-4 w-4" />
-                  {notificationCount > 0 && (
-                    <Badge 
-                      variant="destructive" 
-                      className="absolute -top-1 -right-1 h-5 w-5 rounded-full p-0 flex items-center justify-center text-xs"
-                    >
-                      {notificationCount}
-                    </Badge>
-                  )}
+            {user ? (
+              <>
+                {/* Ask Question Button */}
+                <Button asChild className="hidden sm:flex">
+                  <Link to="/ask">
+                    <Plus className="h-4 w-4 mr-2" />
+                    Ask Question
+                  </Link>
                 </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-80">
-                <div className="p-2">
-                  <h4 className="font-semibold mb-2">Notifications</h4>
-                  <div className="space-y-2">
-                    <DropdownMenuItem className="flex-col items-start p-3">
-                      <span className="font-medium">New answer on your question</span>
-                      <span className="text-sm text-muted-foreground">Someone answered "How to use React hooks?"</span>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem className="flex-col items-start p-3">
-                      <span className="font-medium">Your answer was upvoted</span>
-                      <span className="text-sm text-muted-foreground">+1 vote on your JavaScript answer</span>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem className="flex-col items-start p-3">
-                      <span className="font-medium">You were mentioned</span>
-                      <span className="text-sm text-muted-foreground">@username mentioned you in a comment</span>
-                    </DropdownMenuItem>
-                  </div>
-                </div>
-              </DropdownMenuContent>
-            </DropdownMenu>
 
-            {/* User Menu */}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon">
-                  <User className="h-4 w-4" />
+                {/* Mobile Ask Button */}
+                <Button asChild size="icon" className="sm:hidden">
+                  <Link to="/ask">
+                    <Plus className="h-4 w-4" />
+                  </Link>
                 </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem>Profile</DropdownMenuItem>
-                <DropdownMenuItem>Settings</DropdownMenuItem>
-                <DropdownMenuItem>Logout</DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+
+                {/* Notifications */}
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="icon" className="relative">
+                      <Bell className="h-4 w-4" />
+                      {notificationCount > 0 && (
+                        <Badge 
+                          variant="destructive" 
+                          className="absolute -top-1 -right-1 h-5 w-5 rounded-full p-0 flex items-center justify-center text-xs"
+                        >
+                          {notificationCount}
+                        </Badge>
+                      )}
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-80">
+                    <div className="p-2">
+                      <h4 className="font-semibold mb-2">Notifications</h4>
+                      <div className="space-y-2">
+                        <DropdownMenuItem className="flex-col items-start p-3">
+                          <span className="font-medium">New answer on your question</span>
+                          <span className="text-sm text-muted-foreground">Someone answered "How to use React hooks?"</span>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem className="flex-col items-start p-3">
+                          <span className="font-medium">Your answer was upvoted</span>
+                          <span className="text-sm text-muted-foreground">+1 vote on your JavaScript answer</span>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem className="flex-col items-start p-3">
+                          <span className="font-medium">You were mentioned</span>
+                          <span className="text-sm text-muted-foreground">@username mentioned you in a comment</span>
+                        </DropdownMenuItem>
+                      </div>
+                    </div>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+
+                {/* User Menu */}
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="icon">
+                      <User className="h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem>
+                      <span className="font-medium">{user.email}</span>
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem>Profile</DropdownMenuItem>
+                    <DropdownMenuItem>Settings</DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={handleSignOut}>
+                      <LogOut className="h-4 w-4 mr-2" />
+                      Logout
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </>
+            ) : (
+              <Button asChild>
+                <Link to="/auth">Sign In</Link>
+              </Button>
+            )}
           </div>
         </div>
 
