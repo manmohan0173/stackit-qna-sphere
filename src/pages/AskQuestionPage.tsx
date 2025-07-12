@@ -1,7 +1,7 @@
 
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, X } from "lucide-react";
+import { ArrowLeft, Plus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -9,23 +9,77 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import RichTextEditor from "@/components/RichTextEditor";
 import { useToast } from "@/hooks/use-toast";
+import { useMutation } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 
 const AskQuestionPage = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { user } = useAuth();
   
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [tags, setTags] = useState<string[]>([]);
-  const [currentTag, setCurrentTag] = useState("");
+  const [newTag, setNewTag] = useState("");
 
-  const handleAddTag = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter" && currentTag.trim()) {
+  // Redirect if not logged in
+  if (!user) {
+    return (
+      <div className="container mx-auto px-4 py-12 text-center">
+        <h1 className="text-2xl font-bold mb-4">Authentication Required</h1>
+        <p className="text-muted-foreground mb-6">
+          You need to be logged in to ask a question.
+        </p>
+        <Button onClick={() => navigate("/auth")}>
+          Sign In
+        </Button>
+      </div>
+    );
+  }
+
+  const submitQuestionMutation = useMutation({
+    mutationFn: async () => {
+      if (!user) throw new Error('User must be logged in');
+      
+      const { data, error } = await supabase
+        .from('questions')
+        .insert({
+          title,
+          description,
+          tags: tags.length > 0 ? tags : null,
+          author_name: user.email?.split('@')[0] || 'Anonymous',
+          user_id: user.id,
+        })
+        .select()
+        .single();
+      
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: (data) => {
+      toast({
+        title: "Question posted!",
+        description: "Your question has been successfully submitted."
+      });
+      navigate(`/question/${data.id}`);
+    },
+    onError: (error) => {
+      toast({
+        title: "Error posting question",
+        description: error.message,
+        variant: "destructive"
+      });
+    }
+  });
+
+  const handleAddTag = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter" && newTag.trim()) {
       e.preventDefault();
-      if (!tags.includes(currentTag.trim())) {
-        setTags([...tags, currentTag.trim()]);
+      if (!tags.includes(newTag.trim()) && tags.length < 5) {
+        setTags([...tags, newTag.trim()]);
+        setNewTag("");
       }
-      setCurrentTag("");
     }
   };
 
@@ -39,7 +93,7 @@ const AskQuestionPage = () => {
     if (!title.trim()) {
       toast({
         title: "Title required",
-        description: "Please enter a title for your question.",
+        description: "Please provide a title for your question.",
         variant: "destructive"
       });
       return;
@@ -53,26 +107,9 @@ const AskQuestionPage = () => {
       });
       return;
     }
-    
-    if (tags.length === 0) {
-      toast({
-        title: "Tags required",
-        description: "Please add at least one tag to help categorize your question.",
-        variant: "destructive"
-      });
-      return;
-    }
 
-    // Here you would typically submit to your backend
-    toast({
-      title: "Question posted!",
-      description: "Your question has been successfully submitted."
-    });
-    
-    navigate("/");
+    submitQuestionMutation.mutate();
   };
-
-  const suggestedTags = ["React", "JavaScript", "TypeScript", "Node.js", "CSS", "HTML", "SQL", "Python"];
 
   return (
     <div className="container mx-auto px-4 py-6 max-w-4xl">
@@ -85,10 +122,7 @@ const AskQuestionPage = () => {
         >
           <ArrowLeft className="h-4 w-4" />
         </Button>
-        <div>
-          <h1 className="text-2xl font-bold">Ask a Question</h1>
-          <p className="text-muted-foreground">Get help from the community</p>
-        </div>
+        <h1 className="text-2xl font-bold">Ask a Question</h1>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-3">
@@ -96,50 +130,52 @@ const AskQuestionPage = () => {
         <div className="lg:col-span-2">
           <Card>
             <CardHeader>
-              <CardTitle>Your Question</CardTitle>
+              <CardTitle>Share Your Question</CardTitle>
             </CardHeader>
             <CardContent>
               <form onSubmit={handleSubmit} className="space-y-6">
                 {/* Title */}
                 <div className="space-y-2">
-                  <Label htmlFor="title">
-                    Title <span className="text-destructive">*</span>
-                  </Label>
+                  <Label htmlFor="title">Title</Label>
                   <Input
                     id="title"
+                    placeholder="What's your programming question? Be specific."
                     value={title}
                     onChange={(e) => setTitle(e.target.value)}
-                    placeholder="Be specific and imagine you're asking a friend"
                     className="text-base"
                   />
                   <p className="text-sm text-muted-foreground">
-                    {title.length}/150 characters
+                    Be specific and imagine you're asking a question to another person.
                   </p>
                 </div>
 
                 {/* Description */}
                 <div className="space-y-2">
-                  <Label htmlFor="description">
-                    Description <span className="text-destructive">*</span>
-                  </Label>
+                  <Label htmlFor="description">Description</Label>
                   <RichTextEditor
                     value={description}
                     onChange={setDescription}
-                    placeholder="Provide all the details someone would need to answer your question..."
+                    placeholder="Provide details about your question. Include any relevant code, error messages, or what you've tried so far..."
                     className="min-h-[300px]"
                   />
                   <p className="text-sm text-muted-foreground">
-                    Include all the details someone would need to answer your question. Use the formatting tools above to make your question clear and easy to read.
+                    Include all the information someone would need to answer your question.
                   </p>
                 </div>
 
                 {/* Tags */}
                 <div className="space-y-2">
-                  <Label htmlFor="tags">
-                    Tags <span className="text-destructive">*</span>
-                  </Label>
+                  <Label htmlFor="tags">Tags</Label>
                   <div className="space-y-3">
-                    {/* Current Tags */}
+                    <Input
+                      id="tags"
+                      placeholder="Add up to 5 tags to describe what your question is about (press Enter to add)"
+                      value={newTag}
+                      onChange={(e) => setNewTag(e.target.value)}
+                      onKeyDown={handleAddTag}
+                      disabled={tags.length >= 5}
+                    />
+                    
                     {tags.length > 0 && (
                       <div className="flex flex-wrap gap-2">
                         {tags.map((tag) => (
@@ -148,7 +184,7 @@ const AskQuestionPage = () => {
                             <button
                               type="button"
                               onClick={() => removeTag(tag)}
-                              className="ml-1 hover:bg-destructive hover:text-destructive-foreground rounded-full p-0.5"
+                              className="ml-1 hover:text-destructive"
                             >
                               <X className="h-3 w-3" />
                             </button>
@@ -157,58 +193,19 @@ const AskQuestionPage = () => {
                       </div>
                     )}
                     
-                    {/* Tag Input */}
-                    <Input
-                      id="tags"
-                      value={currentTag}
-                      onChange={(e) => setCurrentTag(e.target.value)}
-                      onKeyDown={handleAddTag}
-                      placeholder="Add a tag and press Enter"
-                      className="text-base"
-                    />
-                    
-                    {/* Suggested Tags */}
-                    <div className="space-y-2">
-                      <p className="text-sm font-medium">Suggested tags:</p>
-                      <div className="flex flex-wrap gap-2">
-                        {suggestedTags
-                          .filter(tag => !tags.includes(tag))
-                          .map((tag) => (
-                          <Badge
-                            key={tag}
-                            variant="outline"
-                            className="cursor-pointer hover:bg-accent"
-                            onClick={() => {
-                              if (!tags.includes(tag)) {
-                                setTags([...tags, tag]);
-                              }
-                            }}
-                          >
-                            + {tag}
-                          </Badge>
-                        ))}
-                      </div>
-                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      Add tags to help others find and answer your question. ({tags.length}/5)
+                    </p>
                   </div>
-                  <p className="text-sm text-muted-foreground">
-                    Add up to 5 tags to help categorize your question
-                  </p>
                 </div>
 
-                {/* Submit Button */}
-                <div className="flex gap-3 pt-4">
-                  <Button type="submit" className="flex-1 sm:flex-none">
-                    Post Question
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => navigate("/")}
-                    className="flex-1 sm:flex-none"
-                  >
-                    Cancel
-                  </Button>
-                </div>
+                <Button 
+                  type="submit" 
+                  className="w-full"
+                  disabled={submitQuestionMutation.isPending}
+                >
+                  {submitQuestionMutation.isPending ? "Posting..." : "Post Your Question"}
+                </Button>
               </form>
             </CardContent>
           </Card>
@@ -219,27 +216,35 @@ const AskQuestionPage = () => {
           {/* Tips */}
           <Card>
             <CardHeader>
-              <CardTitle className="text-lg">Writing Tips</CardTitle>
+              <CardTitle className="text-lg">How to Ask a Good Question</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4 text-sm">
               <div>
-                <h4 className="font-medium mb-1">Great questions include:</h4>
-                <ul className="list-disc list-inside space-y-1 text-muted-foreground">
-                  <li>A clear, specific title</li>
-                  <li>Background context</li>
-                  <li>What you've tried</li>
-                  <li>Expected vs actual results</li>
-                  <li>Relevant code snippets</li>
-                </ul>
+                <h4 className="font-medium mb-2">Search first</h4>
+                <p className="text-muted-foreground">
+                  Check if your question has been asked before.
+                </p>
               </div>
               
               <div>
-                <h4 className="font-medium mb-1">Before posting:</h4>
-                <ul className="list-disc list-inside space-y-1 text-muted-foreground">
-                  <li>Search for similar questions</li>
-                  <li>Check official documentation</li>
-                  <li>Try debugging yourself first</li>
-                </ul>
+                <h4 className="font-medium mb-2">Be specific</h4>
+                <p className="text-muted-foreground">
+                  Provide details about what you're trying to achieve.
+                </p>
+              </div>
+              
+              <div>
+                <h4 className="font-medium mb-2">Include code</h4>
+                <p className="text-muted-foreground">
+                  Show what you've tried and any error messages.
+                </p>
+              </div>
+              
+              <div>
+                <h4 className="font-medium mb-2">Use proper formatting</h4>
+                <p className="text-muted-foreground">
+                  Format code blocks and use clear language.
+                </p>
               </div>
             </CardContent>
           </Card>
@@ -251,13 +256,13 @@ const AskQuestionPage = () => {
             </CardHeader>
             <CardContent>
               <div className="flex flex-wrap gap-2">
-                {suggestedTags.map((tag) => (
-                  <Badge
-                    key={tag}
-                    variant="outline"
+                {["React", "JavaScript", "Node.js", "SQL", "Python", "CSS", "HTML", "TypeScript"].map((tag) => (
+                  <Badge 
+                    key={tag} 
+                    variant="outline" 
                     className="cursor-pointer hover:bg-accent"
                     onClick={() => {
-                      if (!tags.includes(tag)) {
+                      if (!tags.includes(tag) && tags.length < 5) {
                         setTags([...tags, tag]);
                       }
                     }}
